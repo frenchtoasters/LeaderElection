@@ -30,6 +30,18 @@ kind: ServiceAccount
 metadata:
   name: election-service-account
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: election-service
+spec:
+  selector:
+    app: election
+  ports:
+    - protocol: TCP
+      port: 4040
+      targetPort: 4040
+---
 apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
