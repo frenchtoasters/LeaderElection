@@ -1,21 +1,46 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"log"
+	"io/ioutil"
 	"net/http"
 )
 
-func homePage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to the HomePage!")
-	fmt.Println("Endpoint Hit: homePage")
+type ElectionResults struct {
+	Leader   string `json:"leader"`
+	Election string `json:"election"`
 }
 
-func handleRequests() {
-	http.HandleFunc("/", homePage)
-	log.Fatal(http.ListenAndServe(":10000", nil))
+type electionHandler struct{}
+
+func leaderHandler(resp http.ResponseWriter, req *http.Request) {
+	response, err := http.Get("http://localhost:4040/")
+	if err != nil {
+		fmt.Errorf("failed to connect to webservice: %v", err)
+	}
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		fmt.Errorf("error reading body: %v", err)
+	}
+
+	var results ElectionResults
+	err = json.Unmarshal(data, &results)
+	if err != nil {
+		fmt.Errorf("failed to unmarshal data: %v", err)
+	}
+	fmt.Printf("Current Leader of %s: %s", results.Election, results.Leader)
 }
 
 func main() {
-	handleRequests()
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/leader", leaderHandler)
+
+	s := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+
+	s.ListenAndServe()
 }
