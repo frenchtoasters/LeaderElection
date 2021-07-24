@@ -1,33 +1,57 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: election-reader
+rules:
+- apiGroups:
+    - ""
+    - apps
+  resources: 
+    - endpoints
+    - replicasets
+  verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: election-secrets-global
+subjects:
+- kind: ServiceAccount
+  name: election-service-account
+  namespace: default
+  apiGroup: ""
+roleRef:
+  kind: ClusterRole
+  name: election-reader
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: election-robot
+  name: election-service-account
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: ReplicaSet
 metadata:
-  namespace: default
-  name: elector-sidecar
+  name: elector
 spec:
-  containers:
-  - image: gcr.io/my_cloud_code/nodejs:0.4
-    imagePullPolicy: IfNotPresent
-    name: nodejs
-    ports:
-    - containerPort: 8080
-      protocol: TCP
-    resources:
-      requests:
-        cpu: 100m
-  - image: gcr.io/google_containers/leader-elector:0.4
-    imagePullPolicy: IfNotPresent
-    name: elector
-    args:
-      - --election=example
-      - --http=localhost:4040
-    ports:
-    - containerPort: 4040
-      protocol: TCP
-    resources:
-      requests:
-        cpu: 100m
+  replicas: 1
+  selector:
+    matchLabels:
+      app: election
+  template:
+    metadata: 
+      labels:
+        app: election
+    spec:
+      serviceAccountName: election-service-account
+      containers:
+      - image: gcr.io/google_containers/leader-elector:0.4
+        imagePullPolicy: IfNotPresent
+        name: elector
+        args:
+          - --election=example
+          - --http=localhost:4040
+        resources:
+          requests:
+            cpu: 100m
